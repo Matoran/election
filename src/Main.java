@@ -1,6 +1,6 @@
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         if(args.length < 3){
             System.out.println("prog num_port voisin-x.txt INIT|WAIT");
             System.exit(1);
