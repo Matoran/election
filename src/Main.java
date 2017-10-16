@@ -1,5 +1,3 @@
-package run.mato.election;
-
 public class Main {
 
     public static void main(String[] args) {
@@ -7,9 +5,9 @@ public class Main {
             System.out.println("prog num_port voisin-x.txt INIT|WAIT");
             System.exit(1);
         }
-        int port = Integer.valueOf(args[1]);
-        String file = args[2];
-        boolean candidat = args[3].equals("INIT");
+        int port = Integer.valueOf(args[0]);
+        String file = args[1];
+        boolean candidat = args[2].equals("INIT");
         Node node = new Node(port, file, candidat);
     }
 }
