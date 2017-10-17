@@ -1,16 +1,13 @@
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Random;
-import java.util.Scanner;
+import java.util.*;
 
 public class Node {
-    public static final int OK = -2;
-    public static final int NOT_OK = -3;
+    public static final int OK = 254;
+    public static final int NOT_OK = 253;
     private ArrayList<Integer> neighbors = new ArrayList<>();
     private ArrayList<Integer> tried = new ArrayList<>();
-    private ArrayList<Socket> connected = new ArrayList<>();
+    private List<Socket> connected = Collections.synchronizedList(new ArrayList<>());
     private int owner;
     private ServerSocket serverSocket;
     private boolean candidat;
@@ -28,22 +25,20 @@ public class Node {
         try {
             serverSocket = new ServerSocket(id + 3000);
             init();
-            puissance *= 2;
             while (true) {
-                todd();
+                if (!todd()) {
+                    //break;
+                }
                 Thread.sleep(1000);
                 if (!teven()) {
-                    break;
+                    //break;
                 }
-                puissance *= 2;
-                send = 0;
-                receive = 0;
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
         try {
-            System.out.println("GOTO SLEEP FOREVER");
+            System.out.println("GOTO SLEEP FOREVER " + id);
             Thread.sleep(Integer.MAX_VALUE);
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -58,57 +53,59 @@ public class Node {
             Socket socket;
             //tant qu'on n'arrive pas à se connecter
             int neighbour = rand.nextInt(tried.size());
-            while (true) {
-                try {
-                    socket = new Socket(InetAddress.getLoopbackAddress(), tried.get(neighbour));
-                    connected.add(socket);
-                    tried.remove(neighbour);
-                    socket.getOutputStream().write(id);
-                    socket.getOutputStream().flush();
-                    send++;
-                    break;
-                } catch (IOException ignored) {
-                }
-            }
+            new Sender(id, tried.get(neighbour), connected).run();
+            tried.remove(neighbour);
+            send++;
+            puissance *= 2;
         }
     }
 
-    private void todd() throws IOException {
+    private boolean todd() throws IOException {
         System.out.println("t impaire");
-        int best = -1;
+        Socket best = null;
         int bestValue = -1;
         while (true) {
             try {
-                //serverSocket.setSoTimeout(1000);
-                connected.add(serverSocket.accept());
-                int tempValue = connected.get(connected.size() - 1).getInputStream().read();
-                System.out.println("tempValue" + tempValue);
+                serverSocket.setSoTimeout(1000);
+                Socket socket = serverSocket.accept();
+                int tempValue = socket.getInputStream().read();
+                System.out.println("receive value " + tempValue);
                 if (tempValue > bestValue) {
-
-                    best = connected.size() - 1;
+                    if (best != null) {
+                        best.getOutputStream().write(NOT_OK);
+                        best.getOutputStream().flush();
+                        System.out.println("answer not ok");
+                    }
+                    best = socket;
                     bestValue = tempValue;
-                }else{
-                    connected.get(connected.size() -1).getOutputStream().write(NOT_OK);
-                    connected.get(connected.size() -1).getOutputStream().flush();
+                } else {
+                    socket.getOutputStream().write(NOT_OK);
+                    socket.getOutputStream().flush();
+                    System.out.println("answer not ok");
                 }
                 break;
             } catch (SocketTimeoutException ex) {
                 break;
             }
         }
-        if (best != -1) {
+        if (best != null) {
             if (bestValue > id) {
-                System.out.println(best + "best");
-                System.out.println(bestValue + " is better than " + id);
                 candidat = false;
                 owner = bestValue;
-                connected.get(best).getOutputStream().write(OK);
+                System.out.println("loose turn");
+                best.getOutputStream().write(OK);
+                best.getOutputStream().flush();
+                System.out.println("answer ok");
+                return false;
             } else {
+                System.out.println("win turn");
                 candidat = true;
-                connected.get(best).getOutputStream().write(NOT_OK);
+                best.getOutputStream().write(NOT_OK);
+                best.getOutputStream().flush();
+                System.out.println("answer not ok");
             }
-            connected.get(best).getOutputStream().flush();
         }
+        return true;
     }
 
     private boolean teven() throws IOException {
@@ -116,25 +113,34 @@ public class Node {
         for (int i = 0; i < connected.size(); i++) {
             Socket client = connected.get(i);
             int data = client.getInputStream().read();
-            System.out.println("DATA"+ data);
             if (data == OK) {
+                System.out.println("receive ok");
                 receive++;
-                System.out.println("RECEIVE ++");
+            } else {
+                System.out.println("receive not ok");
             }
+            client.close();
         }
+        connected.clear();
         if (candidat) {
             if (send > receive) {
                 candidat = false;
+                System.out.println("loose turn because " + send + " < " + receive);
+                send = 0;
+                receive = 0;
+                return false;
             } else {
-                System.out.println("YESSSSSSS");
+                send = 0;
+                receive = 0;
+                System.out.println("win turn because " + send + " >= " + receive);
+                System.out.println("puissance " + puissance);
                 for (int i = 0; i < puissance && !tried.isEmpty(); i++) {
                     int neighbour = rand.nextInt(tried.size());
-                    Socket socket = new Socket(InetAddress.getLoopbackAddress(), tried.get(neighbour));
+                    new Sender(id, tried.get(neighbour), connected).run();
                     tried.remove(neighbour);
-                    socket.getOutputStream().write(id);
-                    socket.getOutputStream().flush();
                     send++;
                 }
+                puissance *= 2;
                 if (tried.isEmpty()) {
                     return false;
                 }
