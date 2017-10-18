@@ -16,6 +16,7 @@ public class Node {
     private int send = 0;
     private int receive = 0;
     int puissance = 1;
+    private int doNothing = 0;
 
     public Node(int id, String filename, boolean candidat) throws InterruptedException {
         loadFile(filename);
@@ -27,11 +28,10 @@ public class Node {
             init();
             while (true) {
                 if (!todd()) {
-                    //break;
+                    break;
                 }
-                Thread.sleep(1000);
                 if (!teven()) {
-                    //break;
+                    break;
                 }
             }
         } catch (IOException e) {
@@ -68,6 +68,7 @@ public class Node {
             try {
                 serverSocket.setSoTimeout(1000);
                 Socket socket = serverSocket.accept();
+                doNothing = 0;
                 int tempValue = socket.getInputStream().read();
                 System.out.println("receive value " + tempValue);
                 if (tempValue > bestValue) {
@@ -83,8 +84,12 @@ public class Node {
                     socket.getOutputStream().flush();
                     System.out.println("answer not ok");
                 }
-                break;
             } catch (SocketTimeoutException ex) {
+                doNothing++;
+                if(doNothing == 10){
+                    System.out.println("DO NOTHING" + id);
+                    return false;
+                }
                 break;
             }
         }
@@ -96,7 +101,6 @@ public class Node {
                 best.getOutputStream().write(OK);
                 best.getOutputStream().flush();
                 System.out.println("answer ok");
-                return false;
             } else {
                 System.out.println("win turn");
                 candidat = true;
@@ -121,6 +125,9 @@ public class Node {
             }
             client.close();
         }
+        if (tried.isEmpty()) {
+            return false;
+        }
         connected.clear();
         if (candidat) {
             if (send > receive) {
@@ -128,7 +135,6 @@ public class Node {
                 System.out.println("loose turn because " + send + " < " + receive);
                 send = 0;
                 receive = 0;
-                return false;
             } else {
                 send = 0;
                 receive = 0;
@@ -141,9 +147,6 @@ public class Node {
                     send++;
                 }
                 puissance *= 2;
-                if (tried.isEmpty()) {
-                    return false;
-                }
             }
         }
         return true;
