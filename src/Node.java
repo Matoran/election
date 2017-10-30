@@ -5,8 +5,8 @@ import java.util.*;
 public class Node {
     public static final int OK = 254;
     public static final int NOT_OK = 253;
-    private ArrayList<Integer> neighbors = new ArrayList<>();
-    private ArrayList<Integer> tried = new ArrayList<>();
+    private ArrayList<String> neighbors = new ArrayList<>();
+    private ArrayList<String> tried = new ArrayList<>();
     private List<Socket> connected = Collections.synchronizedList(new ArrayList<>());
     private int owner;
     private ServerSocket serverSocket;
@@ -18,13 +18,43 @@ public class Node {
     int puissance = 1;
     private int doNothing = 0;
 
-    public Node(int id, String filename, boolean candidat) throws InterruptedException {
+    private String searchIp(){
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp() || iface.isVirtual() || iface.isPointToPoint())
+                    continue;
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while(addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+
+                    final String ip = addr.getHostAddress();
+                    if(Inet4Address.class == addr.getClass()) return ip;
+                }
+            }
+        } catch (SocketException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    public Node(int id, String filename, boolean candidat) throws InterruptedException, UnknownHostException {
         loadFile(filename);
-        id -= 3000;
+        String ip = searchIp();
+        if(ip != null){
+            System.out.println(ip);
+            System.out.println(Integer.valueOf(ip.substring(ip.lastIndexOf('.')+1, ip.length())));
+            id = Integer.valueOf(ip.substring(ip.lastIndexOf('.')+1, ip.length()));
+        }else{
+            System.exit(10);
+        }
+
         this.id = id;
         this.candidat = candidat;
         try {
-            serverSocket = new ServerSocket(id + 3000);
+            serverSocket = new ServerSocket(3000);
             init();
             while (true) {
                 if (!todd()) {
@@ -50,7 +80,6 @@ public class Node {
         if (candidat) {
             owner = id;
             System.out.println(id);
-            Socket socket;
             //tant qu'on n'arrive pas à se connecter
             int neighbour = rand.nextInt(tried.size());
             new Sender(id, tried.get(neighbour), connected).run();
@@ -158,7 +187,7 @@ public class Node {
             Scanner sc = new Scanner(file);
 
             while (sc.hasNextLine()) {
-                int i = sc.nextInt();
+                String i = sc.nextLine();
                 neighbors.add(i);
                 tried.add(i);
             }

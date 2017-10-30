@@ -1,6 +1,8 @@
+import java.net.UnknownHostException;
+
 public class Main {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, UnknownHostException {
         if(args.length < 3){
             System.out.println("prog num_port voisin-x.txt INIT|WAIT");
             System.exit(1);
